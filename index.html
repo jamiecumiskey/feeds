@@ -17,18 +17,18 @@
 :root{
   --bg:#f2f4f6; --card:#ffffff; --ink:#1d2730; --muted:#66727e; --line:#dde2e7;
   --left:#2f8f83; --left-soft:#d6ece9; --right:#b8577a; --right-soft:#f3dde6;
-  --wet:#3d7fc4; --dirty:#a07432; --danger:#c0392b;
+  --wet:#3d7fc4; --dirty:#a07432; --danger:#c0392b; --scrim:rgba(20,28,36,.45);
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --round:"SF Pro Rounded",ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#12171c; --card:#1b2229; --ink:#e7ecf0; --muted:#8d99a5; --line:#2a333c;
   --left:#4fb8aa; --left-soft:#1d3532; --right:#e07da0; --right-soft:#3a2430;
-  --wet:#6aa6e6; --dirty:#cf9d55; --danger:#ef6f60; color-scheme:dark}}
+  --wet:#6aa6e6; --dirty:#cf9d55; --danger:#ef6f60; --scrim:rgba(0,0,0,.6); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12171c; --card:#1b2229; --ink:#e7ecf0; --muted:#8d99a5; --line:#2a333c;
   --left:#4fb8aa; --left-soft:#1d3532; --right:#e07da0; --right-soft:#3a2430;
-  --wet:#6aa6e6; --dirty:#cf9d55; --danger:#ef6f60; color-scheme:dark}
+  --wet:#6aa6e6; --dirty:#cf9d55; --danger:#ef6f60; --scrim:rgba(0,0,0,.6); color-scheme:dark}
 [hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;margin:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
@@ -120,6 +120,21 @@ nav button{padding:10px 0 12px;font-size:12px;font-weight:600;color:var(--muted)
 nav button[aria-selected="true"]{color:var(--ink)}
 nav svg{width:24px;height:24px}
 nav .live{width:7px;height:7px;border-radius:50%;background:var(--left);display:inline-block;margin-left:4px;vertical-align:middle}
+.nudge{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.nudge button{padding:8px 12px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-weight:600;color:var(--ink)}
+.edit{color:var(--wet);padding:6px 10px;border-radius:8px;font-size:14px;font-weight:600}
+.scrim{position:fixed;inset:0;background:var(--scrim);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+.sheet{background:var(--card);width:100%;max-width:520px;box-sizing:border-box;border-radius:20px 20px 0 0;padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px;max-height:88%;overflow-y:auto}
+.sheet h2{margin:0;font-family:var(--round);font-size:22px}
+.seg{display:grid;grid-template-columns:62px 1fr auto 1fr 30px;gap:5px;align-items:center}
+.seg input,.sheet input[type=time]{font:inherit;font-size:16px;padding:9px 6px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0;width:100%;box-sizing:border-box}
+.sbtn{padding:9px 0;border-radius:10px;font-weight:700;font-size:14px;color:var(--card)}
+.sbtn.L{background:var(--left)} .sbtn.R{background:var(--right)}
+.chip{padding:12px;border-radius:12px;border:2px solid var(--line);font-weight:700}
+.chip.on.wet{background:var(--wet);border-color:var(--wet);color:var(--card)}
+.chip.on.dirty{background:var(--dirty);border-color:var(--dirty);color:var(--card)}
+.x{width:30px;height:36px;border-radius:10px;color:var(--muted);font-size:20px}
+.err{color:var(--danger);font-size:14px}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;display:flex;gap:14px;align-items:center;white-space:nowrap}
 .toast button{color:var(--bg);font-weight:700;text-decoration:underline}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
@@ -139,6 +154,7 @@ nav .live{width:7px;height:7px;border-radius:50%;background:var(--left);display:
       <button class="side R" id="sR" aria-label="Right side timer"><span class="lbl">Right</span><span class="t" id="tR">0:00</span><span class="st" id="sRs">Tap to start</span></button>
     </div>
     <div class="total" id="total"></div>
+    <div class="nudge" id="nudge" hidden>Started before you tapped? Move start back <button data-m="1">1 min</button><button data-m="5">5 min</button></div>
     <div class="actions" id="feedActions">
       <button class="btn" id="discard">Discard</button>
       <button class="btn primary" id="save">Save feed</button>
@@ -248,7 +264,16 @@ nav .live{width:7px;height:7px;border-radius:50%;background:var(--left);display:
     <button role="tab" data-v="log" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>Day log</span></button>
     <button role="tab" data-v="charts" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span>Charts</span></button>
   </div></nav>
-  <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="undo">Undo</button></div>
+  <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="toastEdit" hidden>Edit</button><button id="undo">Undo</button></div>
+  <div class="scrim" id="sheet" hidden>
+    <form class="sheet" id="sheetForm" novalidate>
+      <h2 id="sheetTitle"></h2>
+      <div id="sheetBody" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div class="err" id="sheetErr"></div>
+      <div class="actions"><button type="button" class="btn" id="sheetCancel">Cancel</button><button type="submit" class="btn primary">Save</button></div>
+      <button type="button" class="btn warn" id="sheetDel">Delete</button>
+    </form>
+  </div>
 </div>
 
 <script>
@@ -285,12 +310,18 @@ function toggle(side){
   saveSess();render();
 }
 function stopAll(){const now=Date.now();pause('L',now);pause('R',now)}
+$('nudge').onclick=e=>{
+  const m=+e.target.dataset.m;if(!m||!sess)return;const k=sess.L.on?'L':sess.R.on?'R':null;if(!k)return;
+  const prevEnd=Math.max(0,...(sess.segs||[]).map(g=>g.b));
+  sess[k].on=Math.max(sess[k].on-m*60000,prevEnd);sess.start=Math.min(sess.start,sess[k].on);
+  saveSess();render();
+};
 $('sL').onclick=()=>toggle('L');
 $('sR').onclick=()=>toggle('R');
 $('save').onclick=()=>{
   if(!sess)return;stopAll();
   const l=Math.round(sess.L.acc),r=Math.round(sess.R.acc);
-  if(l+r>0){const f={id:uid(),start:sess.start,end:Date.now(),l,r,last:sess.last,segs:sess.segs||[]};data.feeds.push(f);saveData();toast('Feed saved',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()})}
+  if(l+r>0){const f={id:uid(),start:sess.start,end:Date.now(),l,r,last:sess.last,segs:sess.segs||[]};data.feeds.push(f);saveData();toast('Feed saved',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()},()=>editFeed(f))}
   sess=null;saveSess();render();
 };
 let discardArmed=null;
@@ -327,11 +358,79 @@ const napColor=n=>n.dirty?'var(--dirty)':'var(--wet)';
 
 // ---- toast with undo
 let toastT,undoFn;
-function toast(msg,undo){
-  $('toastMsg').textContent=msg;undoFn=undo;$('undo').hidden=!undo;$('toast').hidden=false;
+let editFn;
+function toast(msg,undo,edit){
+  $('toastMsg').textContent=msg;undoFn=undo;editFn=edit;$('undo').hidden=!undo;$('toastEdit').hidden=!edit;$('toast').hidden=false;
   clearTimeout(toastT);toastT=setTimeout(()=>{$('toast').hidden=true;undoFn=null},5000);
 }
+$('toastEdit').onclick=()=>{$('toast').hidden=true;if(editFn)editFn()};
 $('undo').onclick=()=>{if(undoFn){undoFn();undoFn=null}$('toast').hidden=true;render()};
+
+// ---- edit sheet (past feeds and nappies)
+const hhmm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+// a typed clock time becomes the moment closest to the value it replaces, so feeds over midnight keep their day
+function pickTime(v,near){const [h,m]=v.split(':').map(Number);const d=new Date(near);d.setHours(h,m,0,0);const t=d.getTime();
+  return [t-86400000,t,t+86400000].reduce((a,b)=>Math.abs(b-near)<Math.abs(a-near)?b:a)}
+let sheetSave=null,sheetDel=null,delArmed=false;
+function openSheet(title,onSave,onDel){
+  $('sheetTitle').textContent=title;$('sheetErr').textContent='';sheetSave=onSave;sheetDel=onDel;
+  delArmed=false;$('sheetDel').textContent='Delete';$('sheet').hidden=false;
+}
+function closeSheet(){$('sheet').hidden=true;$('sheetBody').innerHTML='';render()}
+$('sheetCancel').onclick=closeSheet;
+$('sheet').onclick=e=>{if(e.target===$('sheet'))closeSheet()};
+$('sheetForm').onsubmit=e=>{e.preventDefault();const err=sheetSave();if(err){$('sheetErr').textContent=err;return}saveData();closeSheet()};
+$('sheetDel').onclick=()=>{if(!delArmed){delArmed=true;$('sheetDel').textContent='Tap again to delete';return}sheetDel();saveData();closeSheet()};
+
+function editFeed(f){
+  let segs=feedSegs(f).map(g=>({...g}));
+  const body=$('sheetBody');
+  const draw=()=>{
+    body.innerHTML='<div class="small muted">Tap Left/Right to swap the side. Times are when each side started and stopped.</div>';
+    segs.forEach((g,i)=>{
+      const r=document.createElement('div');r.className='seg';
+      r.innerHTML='<button type="button" class="sbtn '+g.s+'">'+(g.s==='L'?'Left':'Right')+'</button><input type="time" aria-label="Start"><span class="muted">to</span><input type="time" aria-label="Stop"><button type="button" class="x" aria-label="Remove">×</button>';
+      const [sb,a,,b,x]=r.children;a.value=hhmm(g.a);b.value=hhmm(g.b);
+      sb.onclick=()=>{g.s=g.s==='L'?'R':'L';draw()};
+      a.onchange=()=>{if(a.value)g.a=pickTime(a.value,g.a);total()};
+      b.onchange=()=>{if(b.value)g.b=pickTime(b.value,g.b);total()};
+      x.onclick=()=>{if(segs.length>1){segs.splice(i,1);draw()}};
+      x.hidden=segs.length<2;
+      body.appendChild(r);
+    });
+    const add=document.createElement('button');add.type='button';add.className='link';add.textContent='+ Add another side';
+    add.onclick=()=>{const l=segs[segs.length-1];segs.push({s:l.s==='L'?'R':'L',a:l.b,b:l.b+10*60000});draw()};
+    body.appendChild(add);
+    const t=document.createElement('div');t.id='segTotal';t.className='small num';body.appendChild(t);total();
+  };
+  const total=()=>{const L=segs.filter(g=>g.s==='L').reduce((a,g)=>a+Math.max(0,g.b-g.a),0)/1000,Rr=segs.filter(g=>g.s==='R').reduce((a,g)=>a+Math.max(0,g.b-g.a),0)/1000;
+    const el=$('segTotal');if(el)el.textContent='Left '+hm(L)+' · Right '+hm(Rr)+' · Total '+hm(L+Rr)};
+  draw();
+  openSheet('Edit feed',()=>{
+    if(segs.some(g=>g.b<=g.a))return 'Each stop time needs to be after its start time.';
+    if(segs.some(g=>g.b-g.a>3*3600000))return 'One side is over 3 hours. Check the times.';
+    segs.sort((a,b)=>a.a-b.a);
+    const i=data.feeds.findIndex(x=>x.id===f.id);if(i<0)return 'This feed was deleted.';
+    const sec=k=>Math.round(segs.filter(g=>g.s===k).reduce((a,g)=>a+g.b-g.a,0)/1000);
+    data.feeds[i]={...f,segs,start:segs[0].a,end:Math.max(...segs.map(g=>g.b)),l:sec('L'),r:sec('R'),last:segs[segs.length-1].s};
+    data.feeds.sort((a,b)=>a.start-b.start);
+  },()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id)});
+}
+function editNappy(n){
+  let wet=n.wet,dirty=n.dirty;
+  const body=$('sheetBody');
+  body.innerHTML='<label class="small muted" style="display:flex;flex-direction:column;gap:6px">Time<input type="time" id="eNt"></label><div class="actions"><button type="button" class="chip wet">Wet</button><button type="button" class="chip dirty">Dirty</button></div>';
+  $('eNt').value=hhmm(n.t);
+  const [cw,cd]=body.querySelectorAll('.chip');
+  const paint=()=>{cw.classList.toggle('on',wet);cd.classList.toggle('on',dirty)};paint();
+  cw.onclick=()=>{wet=!wet;paint()};cd.onclick=()=>{dirty=!dirty;paint()};
+  openSheet('Edit nappy',()=>{
+    if(!wet&&!dirty)return 'Pick wet, dirty or both.';
+    const i=data.nappies.findIndex(x=>x.id===n.id);if(i<0)return 'This nappy was deleted.';
+    data.nappies[i]={...n,wet,dirty,t:$('eNt').value?pickTime($('eNt').value,n.t):n.t};
+    data.nappies.sort((a,b)=>a.t-b.t);
+  },()=>{data.nappies=data.nappies.filter(x=>x.id!==n.id)});
+}
 
 // ---- tabs
 let view='feed';
@@ -342,17 +441,12 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset
 let logDay=dayStart(Date.now());
 $('prev').onclick=()=>{logDay=addDays(logDay,-1);render()};
 $('next').onclick=()=>{logDay=addDays(logDay,1);render()};
-function delBtn(onDel){
-  const b=document.createElement('button');b.className='del';b.textContent='Delete';
-  let armed=false;b.onclick=()=>{if(armed){onDel();render()}else{armed=true;b.classList.add('sure');b.textContent='Sure?';setTimeout(()=>{armed=false;b.classList.remove('sure');b.textContent='Delete'},3000)}};
-  return b;
-}
-function li(time,color,text,sub,onDel){
+function li(time,color,text,sub,onEdit){
   const l=document.createElement('li');
   l.innerHTML='<span class="tm"></span><span class="dot"></span><span class="grow"><div class="tx"></div><div class="small muted sb"></div></span>';
   l.querySelector('.tm').textContent=time;l.querySelector('.dot').style.background=color;
   l.querySelector('.tx').textContent=text;l.querySelector('.sb').textContent=sub||'';
-  if(onDel)l.appendChild(delBtn(onDel));
+  if(onEdit){const b=document.createElement('button');b.className='edit';b.textContent='Edit';b.onclick=onEdit;l.appendChild(b)}
   return l;
 }
 
@@ -467,7 +561,7 @@ function render(){
       $('s'+s+'s').textContent=on?'Tap to pause':(sess&&el(s)>0?'Paused':'Tap to start');
     });
     $('total').innerHTML=sess?'<span class="muted">Started '+fmtTime(sess.start)+' · total</span> <span class="big num">'+mmss(el('L')+el('R'))+'</span>':'<span class="muted">Tap a side to start a feed. Tap the other side to switch.</span>';
-    $('feedActions').hidden=!sess;
+    $('feedActions').hidden=!sess;$('nudge').hidden=!running;
     if(!discardArmed){$('discard').textContent='Discard';$('discard').classList.remove('warn')}
     const last=data.feeds[data.feeds.length-1];
     $('hint').innerHTML=last?'Last feed at <b>'+fmtTime(last.start)+'</b> ('+ago(last.start)+' ago): left '+mins(last.l)+'m, right '+mins(last.r)+'m. Finished on the <b>'+(last.last==='L'?'left':'right')+'</b>.':'No feeds yet. Your last feed and which side you finished on will show here.';
@@ -481,7 +575,7 @@ function render(){
     const ln=data.nappies[data.nappies.length-1];$('nAgo').textContent=ln?ago(ln.t):'–';
     const ul=$('nList');ul.innerHTML='';
     if(!tn.length)ul.innerHTML='<li class="empty">No nappies logged today.</li>';
-    tn.slice().reverse().forEach(n=>ul.appendChild(li(fmtTime(n.t),napColor(n),napLabel(n),'',()=>{data.nappies=data.nappies.filter(x=>x.id!==n.id);saveData()})));
+    tn.slice().reverse().forEach(n=>ul.appendChild(li(fmtTime(n.t),napColor(n),napLabel(n),'',()=>editNappy(n))));
   }
   if(view==='log'){
     $('logDay').textContent=logDay===today?'Today':logDay===addDays(today,-1)?'Yesterday':new Date(logDay).toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
@@ -492,8 +586,8 @@ function render(){
     const ul=$('lList');ul.innerHTML='';
     if(!items.length)ul.innerHTML='<li class="empty">Nothing logged on this day.</li>';
     items.forEach(it=>{
-      if(it.f){const f=it.f;ul.appendChild(li(fmtTime(f.start),'var(--muted)','Feed · '+mins(f.l+f.r)+' min','Left '+mins(f.l)+'m · Right '+mins(f.r)+'m',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()}))}
-      else{const n=it.n;ul.appendChild(li(fmtTime(n.t),napColor(n),napLabel(n)+' nappy','',()=>{data.nappies=data.nappies.filter(x=>x.id!==n.id);saveData()}))}
+      if(it.f){const f=it.f;ul.appendChild(li(fmtTime(f.start),'var(--muted)','Feed · '+mins(f.l+f.r)+' min',fmtTime(f.start)+'–'+fmtTime(f.end)+' · Left '+mins(f.l)+'m · Right '+mins(f.r)+'m',()=>editFeed(f)))}
+      else{const n=it.n;ul.appendChild(li(fmtTime(n.t),napColor(n),napLabel(n)+' nappy','',()=>editNappy(n)))}
     });
   }
   if(view==='charts'){
