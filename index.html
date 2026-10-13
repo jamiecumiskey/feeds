@@ -157,7 +157,7 @@ nav .live{width:7px;height:7px;border-radius:50%;background:var(--left);display:
     <div class="nudge" id="nudge" hidden>Started before you tapped? Move start back <button data-m="1">1 min</button><button data-m="5">5 min</button></div>
     <div class="actions" id="feedActions">
       <button class="btn" id="discard">Discard</button>
-      <button class="btn primary" id="save">Save feed</button>
+      <button class="btn primary" id="save">Done</button>
     </div>
     <div class="card">
       <div class="stats">
@@ -304,6 +304,7 @@ function pause(s,now){if(sess[s].on){sess[s].acc+=(now-sess[s].on)/1000;(sess.se
 function toggle(side){
   const now=Date.now();
   if(!sess)sess={start:now,L:{acc:0,on:null},R:{acc:0,on:null},last:side,segs:[]};
+  sess.done=false;
   const o=side==='L'?'R':'L';
   if(sess[side].on)pause(side,now);
   else{pause(o,now);sess[side].on=now;sess.last=side}
@@ -318,15 +319,18 @@ $('nudge').onclick=e=>{
 };
 $('sL').onclick=()=>toggle('L');
 $('sR').onclick=()=>toggle('R');
+// Done stops the clock; the feed is only saved on Confirm (or Save in the editor)
+const pendingFeed=()=>({id:uid(),start:sess.start,end:Math.max(sess.start,...(sess.segs||[]).map(g=>g.b)),l:Math.round(sess.L.acc),r:Math.round(sess.R.acc),last:sess.last,segs:sess.segs||[]});
+function commitFeed(f){data.feeds.push(f);data.feeds.sort((a,b)=>a.start-b.start);saveData();sess=null;saveSess();toast('Feed saved',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()})}
 $('save').onclick=()=>{
-  if(!sess)return;stopAll();
-  const l=Math.round(sess.L.acc),r=Math.round(sess.R.acc);
-  if(l+r>0){const f={id:uid(),start:sess.start,end:Date.now(),l,r,last:sess.last,segs:sess.segs||[]};data.feeds.push(f);saveData();toast('Feed saved',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()},()=>editFeed(f))}
-  sess=null;saveSess();render();
+  if(!sess)return;
+  if(!sess.done){stopAll();if(Math.round(sess.L.acc+sess.R.acc)<=0)sess=null;else sess.done=true;saveSess();render();return}
+  commitFeed(pendingFeed());render();
 };
 let discardArmed=null;
 $('discard').onclick=()=>{
   if(!sess)return;
+  if(sess.done){editFeed(pendingFeed(),true);return}
   if(discardArmed){clearTimeout(discardArmed);discardArmed=null;sess=null;saveSess();render();return}
   $('discard').textContent='Tap again to discard';$('discard').classList.add('warn');
   discardArmed=setTimeout(()=>{discardArmed=null;render()},3000);
@@ -382,7 +386,7 @@ $('sheet').onclick=e=>{if(e.target===$('sheet'))closeSheet()};
 $('sheetForm').onsubmit=e=>{e.preventDefault();const err=sheetSave();if(err){$('sheetErr').textContent=err;return}saveData();closeSheet()};
 $('sheetDel').onclick=()=>{if(!delArmed){delArmed=true;$('sheetDel').textContent='Tap again to delete';return}sheetDel();saveData();closeSheet()};
 
-function editFeed(f){
+function editFeed(f,isNew){
   let segs=feedSegs(f).map(g=>({...g}));
   const body=$('sheetBody');
   const draw=()=>{
@@ -406,15 +410,16 @@ function editFeed(f){
   const total=()=>{const L=segs.filter(g=>g.s==='L').reduce((a,g)=>a+Math.max(0,g.b-g.a),0)/1000,Rr=segs.filter(g=>g.s==='R').reduce((a,g)=>a+Math.max(0,g.b-g.a),0)/1000;
     const el=$('segTotal');if(el)el.textContent='Left '+hm(L)+' · Right '+hm(Rr)+' · Total '+hm(L+Rr)};
   draw();
-  openSheet('Edit feed',()=>{
+  openSheet(isNew?'Check this feed':'Edit feed',()=>{
     if(segs.some(g=>g.b<=g.a))return 'Each stop time needs to be after its start time.';
     if(segs.some(g=>g.b-g.a>3*3600000))return 'One side is over 3 hours. Check the times.';
     segs.sort((a,b)=>a.a-b.a);
-    const i=data.feeds.findIndex(x=>x.id===f.id);if(i<0)return 'This feed was deleted.';
     const sec=k=>Math.round(segs.filter(g=>g.s===k).reduce((a,g)=>a+g.b-g.a,0)/1000);
-    data.feeds[i]={...f,segs,start:segs[0].a,end:Math.max(...segs.map(g=>g.b)),l:sec('L'),r:sec('R'),last:segs[segs.length-1].s};
-    data.feeds.sort((a,b)=>a.start-b.start);
-  },()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id)});
+    const nf={...f,segs,start:segs[0].a,end:Math.max(...segs.map(g=>g.b)),l:sec('L'),r:sec('R'),last:segs[segs.length-1].s};
+    if(isNew){commitFeed(nf);return}
+    const i=data.feeds.findIndex(x=>x.id===f.id);if(i<0)return 'This feed was deleted.';
+    data.feeds[i]=nf;data.feeds.sort((a,b)=>a.start-b.start);
+  },()=>{if(isNew){sess=null;saveSess()}else data.feeds=data.feeds.filter(x=>x.id!==f.id)});
 }
 function editNappy(n){
   let wet=n.wet,dirty=n.dirty;
@@ -560,9 +565,12 @@ function render(){
       $('s'+s).classList.toggle('on',on);$('t'+s).textContent=mmss(el(s));
       $('s'+s+'s').textContent=on?'Tap to pause':(sess&&el(s)>0?'Paused':'Tap to start');
     });
-    $('total').innerHTML=sess?'<span class="muted">Started '+fmtTime(sess.start)+' · total</span> <span class="big num">'+mmss(el('L')+el('R'))+'</span>':'<span class="muted">Tap a side to start a feed. Tap the other side to switch.</span>';
+    $('total').innerHTML=sess?'<span class="muted">Started '+fmtTime(sess.start)+' · total</span> <span class="big num">'+mmss(el('L')+el('R'))+'</span>'+(sess.done?'<div class="muted small" style="margin-top:4px">Tap Confirm to save, or Edit to fix the times. Tap a side to carry on feeding.</div>':''):'<span class="muted">Tap a side to start a feed. Tap the other side to switch.</span>';
     $('feedActions').hidden=!sess;$('nudge').hidden=!running;
-    if(!discardArmed){$('discard').textContent='Discard';$('discard').classList.remove('warn')}
+    const done=!!(sess&&sess.done);
+    $('save').textContent=done?'Confirm':'Done';
+    if(done){$('discard').textContent='Edit';$('discard').classList.remove('warn')}
+    else if(!discardArmed){$('discard').textContent='Discard';$('discard').classList.remove('warn')}
     const last=data.feeds[data.feeds.length-1];
     $('hint').innerHTML=last?'Last feed at <b>'+fmtTime(last.start)+'</b> ('+ago(last.start)+' ago): left '+mins(last.l)+'m, right '+mins(last.r)+'m. Finished on the <b>'+(last.last==='L'?'left':'right')+'</b>.':'No feeds yet. Your last feed and which side you finished on will show here.';
     const tf=data.feeds.filter(f=>inDay(f.start,today));
