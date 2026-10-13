@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Feeds">
+<meta name="theme-color" content="#f2f4f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12171c" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px)}</style>
+<title>Feeds &amp; Nappies</title>
+<style>
+/* Layout: one-screen phone app, big thumb targets, tab bar pinned to the bottom. Night-first dark palette. */
+:root{
+  --bg:#f2f4f6; --card:#ffffff; --ink:#1d2730; --muted:#66727e; --line:#dde2e7;
+  --left:#2f8f83; --left-soft:#d6ece9; --right:#b8577a; --right-soft:#f3dde6;
+  --wet:#3d7fc4; --dirty:#a07432; --danger:#c0392b;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --round:"SF Pro Rounded",ui-rounded,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171c; --card:#1b2229; --ink:#e7ecf0; --muted:#8d99a5; --line:#2a333c;
+  --left:#4fb8aa; --left-soft:#1d3532; --right:#e07da0; --right-soft:#3a2430;
+  --wet:#6aa6e6; --dirty:#cf9d55; --danger:#ef6f60; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171c; --card:#1b2229; --ink:#e7ecf0; --muted:#8d99a5; --line:#2a333c;
+  --left:#4fb8aa; --left-soft:#1d3532; --right:#e07da0; --right-soft:#3a2430;
+  --wet:#6aa6e6; --dirty:#cf9d55; --danger:#ef6f60; color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;margin:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--wet);outline-offset:2px}
+.app{display:flex;flex-direction:column;min-height:100%;max-width:520px;margin:0 auto}
+header{padding:14px 16px 4px}
+.date{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--round);font-size:28px;margin:2px 0 0;font-weight:700;text-wrap:balance}
+main{flex:1;padding:8px 16px 96px;display:flex;flex-direction:column;gap:16px}
+.card{background:var(--card);border-radius:18px;padding:16px}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.num{font-variant-numeric:tabular-nums}
+.row{display:flex;gap:12px;align-items:center}
+.grow{flex:1}
+
+/* Feed */
+.hint{font-size:15px;line-height:1.4}
+.hint b{font-weight:600}
+.sides{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.side{aspect-ratio:1;max-width:100%;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:3px solid transparent;transition:transform .1s}
+.side:active{transform:scale(.97)}
+.side.L{background:var(--left-soft);color:var(--left)}
+.side.R{background:var(--right-soft);color:var(--right)}
+.side.on.L{background:var(--left);color:var(--card)}
+.side.on.R{background:var(--right);color:var(--card)}
+.side .lbl{font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+.side .t{font-family:var(--round);font-size:34px;font-weight:600;font-variant-numeric:tabular-nums}
+.side .st{font-size:13px;opacity:.85}
+.total{text-align:center;font-size:15px}
+.total .big{font-family:var(--round);font-size:22px;font-weight:600}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{padding:15px;border-radius:14px;font-weight:600;background:var(--card);border:1px solid var(--line);text-align:center}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.warn{color:var(--danger);border-color:var(--danger)}
+.btn:disabled{opacity:.4}
+.link{color:var(--wet);font-weight:600;padding:6px 0}
+.manual{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:end}
+.manual label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+.manual input{font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0;width:100%;box-sizing:border-box}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
+.stat .v{font-family:var(--round);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+/* Nappy */
+.nbtns{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.nb{padding:28px 10px;border-radius:20px;font-size:20px;font-weight:700;color:var(--card)}
+.nb.wet{background:var(--wet)} .nb.dirty{background:var(--dirty)}
+.nb.both{grid-column:1/-1;padding:16px;font-size:17px;background:var(--card);color:var(--ink);border:2px solid var(--line)}
+.nb:active{transform:scale(.98)}
+.stat.wet .v{color:var(--wet)} .stat.dirty .v{color:var(--dirty)}
+
+/* Log */
+.daynav{display:flex;align-items:center;gap:8px}
+.daynav button{width:44px;height:44px;border-radius:12px;background:var(--card);font-size:20px}
+.daynav button:disabled{opacity:.3}
+.daynav .d{flex:1;text-align:center;font-weight:600}
+ul.list{list-style:none;margin:0;padding:0}
+ul.list li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+ul.list li:last-child{border-bottom:0}
+.tm{width:52px;font-variant-numeric:tabular-nums;font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.del{color:var(--muted);padding:6px 10px;border-radius:8px;font-size:14px}
+.del.sure{background:var(--danger);color:#fff}
+.empty{padding:12px 0;color:var(--muted)}
+
+/* Charts */
+.chart h2{font-size:15px;margin:0 0 2px}
+svg{display:block;width:100%;height:auto}
+svg text{fill:var(--muted);font-family:var(--font);font-size:11px}
+svg .val{fill:var(--ink);font-weight:600;font-size:12px}
+.sidetab{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:15px}
+.sidetab th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;text-align:right;padding:4px 0}
+.sidetab td{padding:7px 0;border-top:1px solid var(--line);text-align:right}
+.sidetab td:first-child{text-align:left;display:flex;align-items:center;gap:8px}
+.sidetab .tot td{font-weight:700}
+.split{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--line);margin-bottom:6px}
+.split i{display:block;height:100%}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+
+/* Tabs */
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav .in{display:grid;grid-template-columns:repeat(4,1fr);width:100%;max-width:520px}
+nav button{padding:10px 0 12px;font-size:12px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px}
+nav button[aria-selected="true"]{color:var(--ink)}
+nav svg{width:24px;height:24px}
+nav .live{width:7px;height:7px;border-radius:50%;background:var(--left);display:inline-block;margin-left:4px;vertical-align:middle}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:15px;display:flex;gap:14px;align-items:center;white-space:nowrap}
+.toast button{color:var(--bg);font-weight:700;text-decoration:underline}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="date" id="today"></div>
+    <h1 id="title">Feed</h1>
+  </header>
+
+  <main id="v-feed">
+    <div class="card hint" id="hint"></div>
+    <div class="sides">
+      <button class="side L" id="sL" aria-label="Left side timer"><span class="lbl">Left</span><span class="t" id="tL">0:00</span><span class="st" id="sLs">Tap to start</span></button>
+      <button class="side R" id="sR" aria-label="Right side timer"><span class="lbl">Right</span><span class="t" id="tR">0:00</span><span class="st" id="sRs">Tap to start</span></button>
+    </div>
+    <div class="total" id="total"></div>
+    <div class="actions" id="feedActions">
+      <button class="btn" id="discard">Discard</button>
+      <button class="btn primary" id="save">Save feed</button>
+    </div>
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><div class="v" id="fCount">0</div><div class="k">Feeds today</div></div>
+        <div class="stat"><div class="v" id="fMins">0</div><div class="k">Minutes</div></div>
+        <div class="stat"><div class="v" id="fAgo">–</div><div class="k">Since last</div></div>
+      </div>
+    </div>
+    <div>
+      <button class="link" id="manualToggle">+ Add a feed you forgot to time</button>
+      <form class="card manual" id="manual" hidden>
+        <label>Started<input type="time" id="mTime" required></label>
+        <label>Left (min)<input type="number" id="mL" min="0" max="120" inputmode="numeric" value="0"></label>
+        <label>Right (min)<input type="number" id="mR" min="0" max="120" inputmode="numeric" value="0"></label>
+        <button class="btn primary" style="grid-column:1/-1" type="submit">Add feed</button>
+      </form>
+    </div>
+  </main>
+
+  <main id="v-nappy" hidden>
+    <div class="nbtns">
+      <button class="nb wet" data-n="wet">Wet</button>
+      <button class="nb dirty" data-n="dirty">Dirty</button>
+      <button class="nb both" data-n="both">Wet + dirty</button>
+    </div>
+    <div class="card">
+      <div class="stats">
+        <div class="stat wet"><div class="v" id="nWet">0</div><div class="k">Wet today</div></div>
+        <div class="stat dirty"><div class="v" id="nDirty">0</div><div class="k">Dirty today</div></div>
+        <div class="stat"><div class="v" id="nAgo">–</div><div class="k">Since last</div></div>
+      </div>
+    </div>
+    <div class="card"><div class="small muted">Today</div><ul class="list" id="nList"></ul></div>
+  </main>
+
+  <main id="v-log" hidden>
+    <div class="daynav">
+      <button id="prev" aria-label="Previous day">‹</button>
+      <div class="d" id="logDay"></div>
+      <button id="next" aria-label="Next day">›</button>
+    </div>
+    <div class="card">
+      <div class="stats">
+        <div class="stat"><div class="v" id="lFeeds">0</div><div class="k">Feeds</div></div>
+        <div class="stat wet"><div class="v" id="lWet">0</div><div class="k">Wet</div></div>
+        <div class="stat dirty"><div class="v" id="lDirty">0</div><div class="k">Dirty</div></div>
+      </div>
+    </div>
+    <div class="card"><ul class="list" id="lList"></ul></div>
+  </main>
+
+  <main id="v-charts" hidden>
+    <div class="daynav">
+      <button id="cPrev" aria-label="Previous 7 days">‹</button>
+      <div class="d" id="cRange"></div>
+      <button id="cNext" aria-label="Next 7 days">›</button>
+    </div>
+    <div class="card chart">
+      <h2>Time on each side</h2>
+      <table class="sidetab num">
+        <thead><tr><th></th><th>These 7 days</th><th>All time</th></tr></thead>
+        <tbody>
+          <tr><td><i class="dot" style="background:var(--left)"></i>Left</td><td id="stLt"></td><td id="stLw"></td></tr>
+          <tr><td><i class="dot" style="background:var(--right)"></i>Right</td><td id="stRt"></td><td id="stRw"></td></tr>
+          <tr class="tot"><td>Total</td><td id="stTt"></td><td id="stTw"></td></tr>
+          <tr><td class="muted">Average feed</td><td id="stAt"></td><td id="stAw"></td></tr>
+        </tbody>
+      </table>
+      <div class="split" id="split"></div>
+      <div class="small muted" id="splitTxt"></div>
+    </div>
+    <div class="card chart">
+      <h2>Minutes fed per day</h2>
+      <div class="legend"><span><i class="dot" style="background:var(--left)"></i>Left</span><span><i class="dot" style="background:var(--right)"></i>Right</span></div>
+      <div id="cMins"></div>
+    </div>
+    <div class="card chart">
+      <h2>Daily timeline</h2>
+      <div class="legend"><span><i class="dot" style="background:var(--left);border-radius:3px"></i>Left</span><span><i class="dot" style="background:var(--right);border-radius:3px"></i>Right</span><span><i class="dot" style="background:var(--wet)"></i>Wet</span><span><i class="dot" style="background:var(--dirty)"></i>Dirty</span></div>
+      <div id="cTime"></div>
+    </div>
+    <div class="card chart">
+      <h2>Feeds per day</h2>
+      <div class="small muted" id="cFeedSub"></div>
+      <div id="cFeeds"></div>
+    </div>
+    <div class="card chart">
+      <h2>Nappies per day</h2>
+      <div class="legend"><span><i class="dot" style="background:var(--wet)"></i>Wet</span><span><i class="dot" style="background:var(--dirty)"></i>Dirty</span></div>
+      <div id="cNaps"></div>
+    </div>
+    <div class="card small">
+      <div class="row"><div class="grow muted">Data is saved on this phone only.</div></div>
+      <div class="actions" style="margin-top:12px">
+        <button class="btn" id="demo">Fill example data</button>
+        <button class="btn warn" id="wipe">Erase everything</button>
+      </div>
+    </div>
+  </main>
+
+  <nav><div class="in" role="tablist">
+    <button role="tab" data-v="feed" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M10 2h4"/></svg><span>Feed<i class="live" id="liveDot" hidden></i></span></button>
+    <button role="tab" data-v="nappy" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18v3a9 9 0 0 1-18 0z"/><path d="M8 7v3M16 7v3"/></svg><span>Nappy</span></button>
+    <button role="tab" data-v="log" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg><span>Day log</span></button>
+    <button role="tab" data-v="charts" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 20V11M12 20V5M19 20v-6"/></svg><span>Charts</span></button>
+  </div></nav>
+  <div class="toast" id="toast" hidden><span id="toastMsg"></span><button id="undo">Undo</button></div>
+</div>
+
+<script>
+(function(){
+const KEY='feeds-nappies-v1', SKEY='feeds-nappies-session';
+const $=id=>document.getElementById(id);
+const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const store=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+let data=load(KEY,{feeds:[],nappies:[]});
+let sess=load(SKEY,null);
+const saveData=()=>store(KEY,data);
+const saveSess=()=>store(SKEY,sess);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+
+// ---- dates
+const dayStart=t=>{const d=new Date(t);d.setHours(0,0,0,0);return d.getTime()};
+const addDays=(t,n)=>{const d=new Date(t);d.setDate(d.getDate()+n);return dayStart(d)};
+const fmtDay=t=>new Date(t).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+const fmtTime=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+const mmss=s=>{s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
+const ago=t=>{if(!t)return'–';const m=Math.floor((Date.now()-t)/60000);if(m<1)return'now';if(m<60)return m+'m';const h=Math.floor(m/60);return h<24?h+'h '+(m%60)+'m':Math.floor(h/24)+'d'};
+const mins=s=>Math.round(s/60);
+const inDay=(t,d)=>t>=d&&t<addDays(d,1);
+
+// ---- feed timer
+const el=side=>sess?sess[side].acc+(sess[side].on?(Date.now()-sess[side].on)/1000:0):0;
+function pause(s,now){if(sess[s].on){sess[s].acc+=(now-sess[s].on)/1000;(sess.segs=sess.segs||[]).push({s,a:sess[s].on,b:now});sess[s].on=null}}
+function toggle(side){
+  const now=Date.now();
+  if(!sess)sess={start:now,L:{acc:0,on:null},R:{acc:0,on:null},last:side,segs:[]};
+  const o=side==='L'?'R':'L';
+  if(sess[side].on)pause(side,now);
+  else{pause(o,now);sess[side].on=now;sess.last=side}
+  saveSess();render();
+}
+function stopAll(){const now=Date.now();pause('L',now);pause('R',now)}
+$('sL').onclick=()=>toggle('L');
+$('sR').onclick=()=>toggle('R');
+$('save').onclick=()=>{
+  if(!sess)return;stopAll();
+  const l=Math.round(sess.L.acc),r=Math.round(sess.R.acc);
+  if(l+r>0){const f={id:uid(),start:sess.start,end:Date.now(),l,r,last:sess.last,segs:sess.segs||[]};data.feeds.push(f);saveData();toast('Feed saved',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()})}
+  sess=null;saveSess();render();
+};
+let discardArmed=null;
+$('discard').onclick=()=>{
+  if(!sess)return;
+  if(discardArmed){clearTimeout(discardArmed);discardArmed=null;sess=null;saveSess();render();return}
+  $('discard').textContent='Tap again to discard';$('discard').classList.add('warn');
+  discardArmed=setTimeout(()=>{discardArmed=null;render()},3000);
+};
+$('manualToggle').onclick=()=>{const m=$('manual');m.hidden=!m.hidden;if(!m.hidden){$('mTime').value=fmtTime24(Date.now()-30*60000)}};
+const fmtTime24=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')};
+$('manual').onsubmit=e=>{
+  e.preventDefault();
+  const [h,m]=($('mTime').value||'0:0').split(':').map(Number);
+  const d=new Date();d.setHours(h,m,0,0);
+  if(d.getTime()>Date.now())d.setDate(d.getDate()-1); // a time later than now means last night
+  const l=Math.max(0,+$('mL').value||0)*60,r=Math.max(0,+$('mR').value||0)*60;
+  if(l+r===0)return;
+  const f={id:uid(),start:d.getTime(),end:d.getTime()+(l+r)*1000,l,r,last:r&&!l?'R':(l&&!r?'L':'R')};
+  data.feeds.push(f);data.feeds.sort((a,b)=>a.start-b.start);saveData();
+  $('manual').hidden=true;$('mL').value=0;$('mR').value=0;
+  toast('Feed added',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()});render();
+};
+
+// ---- nappies
+document.querySelectorAll('.nb').forEach(b=>b.onclick=()=>{
+  const k=b.dataset.n,n={id:uid(),t:Date.now(),wet:k!=='dirty',dirty:k!=='wet'};
+  data.nappies.push(n);saveData();
+  toast((k==='both'?'Wet + dirty':k[0].toUpperCase()+k.slice(1))+' nappy logged',()=>{data.nappies=data.nappies.filter(x=>x.id!==n.id);saveData()});
+  render();
+});
+const napLabel=n=>n.wet&&n.dirty?'Wet + dirty':n.wet?'Wet':'Dirty';
+const napColor=n=>n.dirty?'var(--dirty)':'var(--wet)';
+
+// ---- toast with undo
+let toastT,undoFn;
+function toast(msg,undo){
+  $('toastMsg').textContent=msg;undoFn=undo;$('undo').hidden=!undo;$('toast').hidden=false;
+  clearTimeout(toastT);toastT=setTimeout(()=>{$('toast').hidden=true;undoFn=null},5000);
+}
+$('undo').onclick=()=>{if(undoFn){undoFn();undoFn=null}$('toast').hidden=true;render()};
+
+// ---- tabs
+let view='feed';
+const titles={feed:'Feed',nappy:'Nappies',log:'Day log',charts:'Charts'};
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{view=b.dataset.v;logDay=dayStart(Date.now());chartEnd=logDay;render()});
+
+// ---- log
+let logDay=dayStart(Date.now());
+$('prev').onclick=()=>{logDay=addDays(logDay,-1);render()};
+$('next').onclick=()=>{logDay=addDays(logDay,1);render()};
+function delBtn(onDel){
+  const b=document.createElement('button');b.className='del';b.textContent='Delete';
+  let armed=false;b.onclick=()=>{if(armed){onDel();render()}else{armed=true;b.classList.add('sure');b.textContent='Sure?';setTimeout(()=>{armed=false;b.classList.remove('sure');b.textContent='Delete'},3000)}};
+  return b;
+}
+function li(time,color,text,sub,onDel){
+  const l=document.createElement('li');
+  l.innerHTML='<span class="tm"></span><span class="dot"></span><span class="grow"><div class="tx"></div><div class="small muted sb"></div></span>';
+  l.querySelector('.tm').textContent=time;l.querySelector('.dot').style.background=color;
+  l.querySelector('.tx').textContent=text;l.querySelector('.sb').textContent=sub||'';
+  if(onDel)l.appendChild(delBtn(onDel));
+  return l;
+}
+
+// ---- charts (hand-drawn SVG, any 7 days: arrows or swipe)
+let chartEnd=dayStart(Date.now());
+const firstDay=()=>{const t=[...data.feeds.map(f=>f.start),...data.nappies.map(n=>n.t)];return t.length?dayStart(Math.min(...t)):dayStart(Date.now())};
+function moveCharts(n){const today=dayStart(Date.now());let e=addDays(chartEnd,n);if(e>today)e=today;if(n<0&&addDays(chartEnd,-6)<=firstDay())return;chartEnd=e;render()}
+$('cPrev').onclick=()=>moveCharts(-7);$('cNext').onclick=()=>moveCharts(7);
+let tx=null,ty=null;
+$('v-charts').addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY},{passive:true});
+$('v-charts').addEventListener('touchend',e=>{if(tx==null)return;const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;tx=null;if(Math.abs(dx)>60&&Math.abs(dy)<50)moveCharts(dx>0?-7:7)},{passive:true});
+// feeds saved before side-by-side timing (or added by hand) get an estimated left-then-right split
+const feedSegs=f=>f.segs&&f.segs.length?f.segs:[{s:'L',a:f.start,b:f.start+f.l*1000},{s:'R',a:f.start+f.l*1000,b:f.start+(f.l+f.r)*1000}];
+const hm=sec=>{const m=Math.round(sec/60);return m<60?m+'m':Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'};
+// minutes per day, left stacked under right, total on top
+function stackChart(days,Lv,Rv){
+  const W=340,H=170,pt=18,pb=34,gl=22,cw=(W-gl)/days.length,ih=H-pt-pb,bw=26,max=Math.max(30,...days.map((_,i)=>Lv[i]+Rv[i]));
+  const step=max>240?120:max>120?60:30,top=Math.ceil(max/step)*step;
+  let s='<svg viewBox="0 0 '+W+' '+H+'" role="img">';
+  for(let v=step;v<=top;v+=step){const y=pt+ih*(1-v/top);s+='<line x1="'+gl+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-dasharray="3 4"/><text x="0" y="'+(y+4)+'">'+(v>=60?v/60+'h':v+'m')+'</text>'}
+  s+='<line x1="0" x2="'+W+'" y1="'+(pt+ih)+'" y2="'+(pt+ih)+'" stroke="var(--line)"/>';
+  days.forEach((d,i)=>{
+    const cx=gl+cw*i+cw/2,x=cx-bw/2,hl=ih*Lv[i]/top,hr=ih*Rv[i]/top,base=pt+ih,dt=new Date(d),isToday=d===dayStart(Date.now());
+    s+='<rect x="'+x+'" y="'+(base-hl)+'" width="'+bw+'" height="'+hl+'" fill="var(--left)"/>';
+    s+='<rect x="'+x+'" y="'+(base-hl-hr)+'" width="'+bw+'" height="'+hr+'" fill="var(--right)"/>';
+    s+='<text class="val" x="'+cx+'" y="'+(base-hl-hr-5)+'" text-anchor="middle">'+(Lv[i]+Rv[i])+'</text>';
+    s+='<text x="'+cx+'" y="'+(H-18)+'" text-anchor="middle"'+(isToday?' class="val"':'')+'>'+dt.toLocaleDateString(undefined,{weekday:'short'})+'</text>';
+    s+='<text x="'+cx+'" y="'+(H-4)+'" text-anchor="middle">'+dt.getDate()+'</text>';
+  });
+  return s+'</svg>';
+}
+// one row per day: feeds as start-to-finish bars across a 24-hour line, nappies as dots underneath
+function timeline(days){
+  const W=340,lx=40,rx=W-6,top=16,rh=34,H=top+rh*days.length+4,iw=rx-lx,now=Date.now();
+  const X=(t,d)=>lx+iw*Math.min(Math.max((t-d)/86400000,0),1);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" role="img">';
+  [0,6,12,18,24].forEach(h=>{const x=lx+iw*h/24;
+    s+='<line x1="'+x+'" x2="'+x+'" y1="'+(top-2)+'" y2="'+(H-4)+'" stroke="var(--line)"'+(h%24?' stroke-dasharray="3 4"':'')+'/>';
+    s+='<text x="'+x+'" y="10" text-anchor="'+(h===24?'end':'middle')+'">'+String(h).padStart(2,'0')+':00</text>'});
+  days.forEach((d,i)=>{
+    const y=top+rh*i,end=addDays(d,1),dt=new Date(d),isToday=d===dayStart(now);
+    s+='<text x="0" y="'+(y+13)+'"'+(isToday?' class="val"':'')+'>'+dt.toLocaleDateString(undefined,{weekday:'short'})+'</text>';
+    s+='<text x="0" y="'+(y+26)+'">'+dt.getDate()+'</text>';
+    s+='<rect x="'+lx+'" y="'+(y+4)+'" width="'+(isToday?X(now,d)-lx:iw)+'" height="12" rx="3" fill="var(--bg)"/>';
+    const segs=data.feeds.flatMap(feedSegs);
+    if(sess){segs.push(...(sess.segs||[]));['L','R'].forEach(k=>{if(sess[k].on)segs.push({s:k,a:sess[k].on,b:now})})}
+    segs.forEach(g=>{if(g.b<d||g.a>=end)return;const x1=X(g.a,d),x2=X(g.b,d);
+      s+='<rect x="'+x1+'" y="'+(y+4)+'" width="'+Math.max(x2-x1,1.5)+'" height="12" fill="'+(g.s==='L'?'var(--left)':'var(--right)')+'"/>'});
+    data.nappies.forEach(n=>{if(!inDay(n.t,d))return;const x=X(n.t,d);
+      if(n.wet&&n.dirty){s+='<circle cx="'+(x-3)+'" cy="'+(y+24)+'" r="3.5" fill="var(--wet)"/><circle cx="'+(x+3)+'" cy="'+(y+24)+'" r="3.5" fill="var(--dirty)"/>'}
+      else s+='<circle cx="'+x+'" cy="'+(y+24)+'" r="3.5" fill="'+napColor(n)+'"/>'});
+  });
+  return s+'</svg>';
+}
+function barChart(days,series,max){
+  const W=340,H=170,pl=4,pr=4,pt=18,pb=34,cw=(W-pl-pr)/days.length,ih=H-pt-pb;
+  const n=series.length,bw=Math.min(28,(cw-10)/n);
+  let s='<svg viewBox="0 0 '+W+' '+H+'" role="img">';
+  [0.5,1].forEach(f=>{const y=pt+ih*(1-f);s+='<line x1="0" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-dasharray="3 4"/>'});
+  s+='<line x1="0" x2="'+W+'" y1="'+(pt+ih)+'" y2="'+(pt+ih)+'" stroke="var(--line)"/>';
+  days.forEach((d,i)=>{
+    const cx=pl+cw*i+cw/2,isToday=d===dayStart(Date.now());
+    series.forEach((se,j)=>{
+      const v=se.vals[i],h=max?ih*v/max:0,x=cx-(n*bw+(n-1)*3)/2+j*(bw+3),y=pt+ih-h;
+      s+='<rect x="'+x+'" y="'+y+'" width="'+bw+'" height="'+Math.max(h,0)+'" rx="4" fill="'+se.color+'" opacity="'+(isToday||n>1?1:.55)+'"/>';
+      s+='<text class="val" x="'+(x+bw/2)+'" y="'+(y-5)+'" text-anchor="middle">'+v+'</text>';
+    });
+    const dt=new Date(d);
+    s+='<text x="'+cx+'" y="'+(H-18)+'" text-anchor="middle"'+(isToday?' class="val"':'')+'>'+dt.toLocaleDateString(undefined,{weekday:'short'})+'</text>';
+    s+='<text x="'+cx+'" y="'+(H-4)+'" text-anchor="middle">'+dt.getDate()+'</text>';
+  });
+  return s+'</svg>';
+}
+
+// ---- demo + wipe
+$('demo').onclick=()=>{
+  const now=Date.now();data={feeds:[],nappies:[]};
+  for(let d=20;d>=0;d--){
+    const base=addDays(now,-d);let t=base+40*60000;let side='L';
+    while(t<(d?base+86400000:now-20*60000)){
+      const l=(8+Math.floor(Math.random()*10))*60,r=(5+Math.floor(Math.random()*10))*60;
+      const a=side==='L'?l:r,b=side==='L'?r:l,o=side==='L'?'R':'L';
+      data.feeds.push({id:uid(),start:t,end:t+(l+r)*1000,l,r,last:o,segs:[{s:side,a:t,b:t+a*1000},{s:o,a:t+a*1000,b:t+(a+b)*1000}]});
+      side=side==='L'?'R':'L';t+=(2.2+Math.random()*1.4)*3600000;
+    }
+    let n=base+90*60000;while(n<(d?base+86400000:now-30*60000)){
+      const r=Math.random();data.nappies.push({id:uid(),t:n,wet:r<.85,dirty:r>.6});n+=(2.5+Math.random()*1.8)*3600000;
+    }
+  }
+  saveData();toast('3 weeks of example data added');render();
+};
+let wipeArmed=false;
+$('wipe').onclick=()=>{
+  if(!wipeArmed){wipeArmed=true;$('wipe').textContent='Tap again to erase';setTimeout(()=>{wipeArmed=false;$('wipe').textContent='Erase everything'},3000);return}
+  wipeArmed=false;data={feeds:[],nappies:[]};sess=null;saveData();saveSess();$('wipe').textContent='Erase everything';toast('All data erased');render();
+};
+
+// ---- render
+function render(){
+  const now=Date.now(),today=dayStart(now);
+  $('today').textContent=fmtDay(now);
+  $('title').textContent=titles[view];
+  ['feed','nappy','log','charts'].forEach(v=>$('v-'+v).hidden=v!==view);
+  document.querySelectorAll('nav button').forEach(b=>b.setAttribute('aria-selected',b.dataset.v===view));
+  const running=!!(sess&&(sess.L.on||sess.R.on));
+  $('liveDot').hidden=!running;
+
+  if(view==='feed'){
+    ['L','R'].forEach(s=>{
+      const on=!!(sess&&sess[s].on);
+      $('s'+s).classList.toggle('on',on);$('t'+s).textContent=mmss(el(s));
+      $('s'+s+'s').textContent=on?'Tap to pause':(sess&&el(s)>0?'Paused':'Tap to start');
+    });
+    $('total').innerHTML=sess?'<span class="muted">Started '+fmtTime(sess.start)+' · total</span> <span class="big num">'+mmss(el('L')+el('R'))+'</span>':'<span class="muted">Tap a side to start a feed. Tap the other side to switch.</span>';
+    $('feedActions').hidden=!sess;
+    if(!discardArmed){$('discard').textContent='Discard';$('discard').classList.remove('warn')}
+    const last=data.feeds[data.feeds.length-1];
+    $('hint').innerHTML=last?'Last feed at <b>'+fmtTime(last.start)+'</b> ('+ago(last.start)+' ago): left '+mins(last.l)+'m, right '+mins(last.r)+'m. Finished on the <b>'+(last.last==='L'?'left':'right')+'</b>.':'No feeds yet. Your last feed and which side you finished on will show here.';
+    const tf=data.feeds.filter(f=>inDay(f.start,today));
+    $('fCount').textContent=tf.length;$('fMins').textContent=mins(tf.reduce((a,f)=>a+f.l+f.r,0));
+    $('fAgo').textContent=last?ago(last.start):'–';
+  }
+  if(view==='nappy'){
+    const tn=data.nappies.filter(n=>inDay(n.t,today));
+    $('nWet').textContent=tn.filter(n=>n.wet).length;$('nDirty').textContent=tn.filter(n=>n.dirty).length;
+    const ln=data.nappies[data.nappies.length-1];$('nAgo').textContent=ln?ago(ln.t):'–';
+    const ul=$('nList');ul.innerHTML='';
+    if(!tn.length)ul.innerHTML='<li class="empty">No nappies logged today.</li>';
+    tn.slice().reverse().forEach(n=>ul.appendChild(li(fmtTime(n.t),napColor(n),napLabel(n),'',()=>{data.nappies=data.nappies.filter(x=>x.id!==n.id);saveData()})));
+  }
+  if(view==='log'){
+    $('logDay').textContent=logDay===today?'Today':logDay===addDays(today,-1)?'Yesterday':new Date(logDay).toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short'});
+    $('next').disabled=logDay>=today;
+    const fs=data.feeds.filter(f=>inDay(f.start,logDay)),ns=data.nappies.filter(n=>inDay(n.t,logDay));
+    $('lFeeds').textContent=fs.length;$('lWet').textContent=ns.filter(n=>n.wet).length;$('lDirty').textContent=ns.filter(n=>n.dirty).length;
+    const items=[...fs.map(f=>({t:f.start,f})),...ns.map(n=>({t:n.t,n}))].sort((a,b)=>b.t-a.t);
+    const ul=$('lList');ul.innerHTML='';
+    if(!items.length)ul.innerHTML='<li class="empty">Nothing logged on this day.</li>';
+    items.forEach(it=>{
+      if(it.f){const f=it.f;ul.appendChild(li(fmtTime(f.start),'var(--muted)','Feed · '+mins(f.l+f.r)+' min','Left '+mins(f.l)+'m · Right '+mins(f.r)+'m',()=>{data.feeds=data.feeds.filter(x=>x.id!==f.id);saveData()}))}
+      else{const n=it.n;ul.appendChild(li(fmtTime(n.t),napColor(n),napLabel(n)+' nappy','',()=>{data.nappies=data.nappies.filter(x=>x.id!==n.id);saveData()}))}
+    });
+  }
+  if(view==='charts'){
+    const days=[];for(let i=6;i>=0;i--)days.push(addDays(chartEnd,-i));
+    const f0=new Date(days[0]),f6=new Date(days[6]);
+    $('cRange').textContent=chartEnd===today?'Last 7 days':f0.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' – '+f6.toLocaleDateString(undefined,{day:'numeric',month:'short',year:f6.getFullYear()!==new Date().getFullYear()?'numeric':undefined});
+    $('cNext').disabled=chartEnd>=today;$('cPrev').disabled=days[0]<=firstDay();
+    const fc=days.map(d=>data.feeds.filter(f=>inDay(f.start,d)).length);
+    const wc=days.map(d=>data.nappies.filter(n=>n.wet&&inDay(n.t,d)).length);
+    const dc=days.map(d=>data.nappies.filter(n=>n.dirty&&inDay(n.t,d)).length);
+    const full=fc.filter((v,i)=>v>0&&days[i]<today);
+    $('cFeedSub').textContent=full.length?'Average '+(full.reduce((a,b)=>a+b,0)/full.length).toFixed(1)+' a day over '+full.length+' full day'+(full.length>1?'s':''):'';
+    const wk=data.feeds.filter(f=>f.start>=days[0]&&f.start<addDays(chartEnd,1)),td=data.feeds;
+    const sum=(a,k)=>a.reduce((x,f)=>x+f[k],0);
+    const Lw=sum(wk,'l'),Rw=sum(wk,'r'),Lt=sum(td,'l'),Rt=sum(td,'r');
+    $('stLt').textContent=hm(Lw);$('stRt').textContent=hm(Rw);$('stTt').textContent=hm(Lw+Rw);
+    $('stLw').textContent=hm(Lt);$('stRw').textContent=hm(Rt);$('stTw').textContent=hm(Lt+Rt);
+    $('stAt').textContent=wk.length?hm((Lw+Rw)/wk.length):'–';$('stAw').textContent=td.length?hm((Lt+Rt)/td.length):'–';
+    const pl=Lw+Rw?Math.round(100*Lw/(Lw+Rw)):50;
+    $('split').innerHTML=Lw+Rw?'<i style="width:'+pl+'%;background:var(--left)"></i><i style="width:'+(100-pl)+'%;background:var(--right)"></i>':'';
+    $('splitTxt').textContent=Lw+Rw?'These 7 days: '+pl+'% left, '+(100-pl)+'% right':'No feeds in these 7 days.';
+    $('cMins').innerHTML=stackChart(days,days.map(d=>mins(sum(data.feeds.filter(f=>inDay(f.start,d)),'l'))),days.map(d=>mins(sum(data.feeds.filter(f=>inDay(f.start,d)),'r'))));
+    $('cTime').innerHTML=timeline(days.slice().reverse());
+    $('cFeeds').innerHTML=barChart(days,[{vals:fc,color:'var(--muted)'}],Math.max(4,...fc));
+    $('cNaps').innerHTML=barChart(days,[{vals:wc,color:'var(--wet)'},{vals:dc,color:'var(--dirty)'}],Math.max(4,...wc,...dc));
+  }
+}
+render();
+setInterval(()=>{if(view==='feed')render()},500);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){sess=load(SKEY,sess);render()}});
+if('serviceWorker' in navigator&&location.protocol==='https:'&&!/claude/.test(location.hostname)){try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){}}
+})();
+</script>
+</body>
+</html>
