@@ -73,7 +73,7 @@ main{flex:1;padding:8px 16px 96px;display:flex;flex-direction:column;gap:16px}
 
 /* Stats */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center}
-.stat .v{font-family:var(--round);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat .v{font-family:var(--round);font-size:clamp(20px,6.4vw,28px);white-space:nowrap;font-weight:700;font-variant-numeric:tabular-nums}
 .stat .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 
 /* Nappy */
@@ -162,7 +162,7 @@ nav .live{width:7px;height:7px;border-radius:50%;background:var(--left);display:
     <div class="card">
       <div class="stats">
         <div class="stat"><div class="v" id="fCount">0</div><div class="k">Feeds today</div></div>
-        <div class="stat"><div class="v" id="fMins">0</div><div class="k">Minutes</div></div>
+        <div class="stat"><div class="v" id="fMins">0m</div><div class="k">Time fed</div></div>
         <div class="stat"><div class="v" id="fAgo">–</div><div class="k">Since last</div></div>
       </div>
     </div>
@@ -294,7 +294,7 @@ const addDays=(t,n)=>{const d=new Date(t);d.setDate(d.getDate()+n);return daySta
 const fmtDay=t=>new Date(t).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
 const fmtTime=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 const mmss=s=>{s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
-const ago=t=>{if(!t)return'–';const m=Math.floor((Date.now()-t)/60000);if(m<1)return'now';if(m<60)return m+'m';const h=Math.floor(m/60);return h<24?h+'h '+(m%60)+'m':Math.floor(h/24)+'d'};
+const ago=t=>{if(!t)return'–';const m=Math.floor((Date.now()-t)/60000);if(m<1)return'0m';if(m<60)return m+'m';const h=Math.floor(m/60);return h<24?h+'h '+(m%60)+'m':Math.floor(h/24)+'d'};
 const mins=s=>Math.round(s/60);
 const inDay=(t,d)=>t>=d&&t<addDays(d,1);
 
@@ -468,7 +468,7 @@ const feedSegs=f=>f.segs&&f.segs.length?f.segs:[{s:'L',a:f.start,b:f.start+f.l*1
 const hm=sec=>{const m=Math.round(sec/60);return m<60?m+'m':Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'};
 // minutes per day, left stacked under right, total on top
 function stackChart(days,Lv,Rv){
-  const W=340,H=170,pt=18,pb=34,gl=22,cw=(W-gl)/days.length,ih=H-pt-pb,bw=26,max=Math.max(30,...days.map((_,i)=>Lv[i]+Rv[i]));
+  const W=340,H=176,pt=24,pb=34,gl=22,cw=(W-gl)/days.length,ih=H-pt-pb,bw=26,max=Math.max(30,...days.map((_,i)=>Lv[i]+Rv[i]));
   const step=max>240?120:max>120?60:30,top=Math.ceil(max/step)*step;
   let s='<svg viewBox="0 0 '+W+' '+H+'" role="img">';
   for(let v=step;v<=top;v+=step){const y=pt+ih*(1-v/top);s+='<line x1="'+gl+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)" stroke-dasharray="3 4"/><text x="0" y="'+(y+4)+'">'+(v>=60?v/60+'h':v+'m')+'</text>'}
@@ -477,7 +477,7 @@ function stackChart(days,Lv,Rv){
     const cx=gl+cw*i+cw/2,x=cx-bw/2,hl=ih*Lv[i]/top,hr=ih*Rv[i]/top,base=pt+ih,dt=new Date(d),isToday=d===dayStart(Date.now());
     s+='<rect x="'+x+'" y="'+(base-hl)+'" width="'+bw+'" height="'+hl+'" fill="var(--left)"/>';
     s+='<rect x="'+x+'" y="'+(base-hl-hr)+'" width="'+bw+'" height="'+hr+'" fill="var(--right)"/>';
-    s+='<text class="val" x="'+cx+'" y="'+(base-hl-hr-5)+'" text-anchor="middle">'+(Lv[i]+Rv[i])+'</text>';
+    s+='<text class="val" style="font-size:10px" x="'+cx+'" y="'+(base-hl-hr-5)+'" text-anchor="middle">'+(Lv[i]+Rv[i]?hm((Lv[i]+Rv[i])*60):'')+'</text>';
     s+='<text x="'+cx+'" y="'+(H-18)+'" text-anchor="middle"'+(isToday?' class="val"':'')+'>'+dt.toLocaleDateString(undefined,{weekday:'short'})+'</text>';
     s+='<text x="'+cx+'" y="'+(H-4)+'" text-anchor="middle">'+dt.getDate()+'</text>';
   });
@@ -574,7 +574,7 @@ function render(){
     const last=data.feeds[data.feeds.length-1];
     $('hint').innerHTML=last?'Last feed at <b>'+fmtTime(last.start)+'</b> ('+ago(last.start)+' ago): left '+mins(last.l)+'m, right '+mins(last.r)+'m. Finished on the <b>'+(last.last==='L'?'left':'right')+'</b>.':'No feeds yet. Your last feed and which side you finished on will show here.';
     const tf=data.feeds.filter(f=>inDay(f.start,today));
-    $('fCount').textContent=tf.length;$('fMins').textContent=mins(tf.reduce((a,f)=>a+f.l+f.r,0));
+    $('fCount').textContent=tf.length;$('fMins').textContent=hm(tf.reduce((a,f)=>a+f.l+f.r,0));
     $('fAgo').textContent=last?ago(last.start):'–';
   }
   if(view==='nappy'){

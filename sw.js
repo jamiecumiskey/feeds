@@ -1,5 +1,5 @@
 // Keeps the app working with no signal: serve from cache, refresh cache in the background.
-const C='feeds-v6';
+const C='feeds-v7';
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','index.html','icon.png'])));self.skipWaiting()});
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
